@@ -28,14 +28,17 @@ public sealed unsafe class RemoteMethod : IDisposable
     }
 
     /// <summary>Allocates a new function in the process using the provided generator.</summary>
-    public static RemoteMethod Create(IntPtr process, Action<Assembler> generator) => Create((HANDLE)process, generator);
-
-    static RemoteMethod Create(HANDLE process, Action<Assembler> generator)
+    public static RemoteMethod Create(IntPtr process, Action<Assembler> generator)
     {
-        if (process == HANDLE.NULL)
+        if (process == IntPtr.Zero)
             throw new ArgumentNullException(nameof(process));
 
         ArgumentNullException.ThrowIfNull(generator);
+        return Create((HANDLE)process, generator);
+    }
+
+    static RemoteMethod Create(HANDLE process, Action<Assembler> generator)
+    {
         var asm      = new Assembler(GetProcessBitness(process));
         using var ms = new MemoryStream();
 
