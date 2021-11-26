@@ -34,7 +34,9 @@ public sealed unsafe class RemoteRuntime : IDisposable
     /// <summary>Initializes a new <see cref="RemoteRuntime"/> instance and loads the .NET runtime into the given process.</summary>
     public RemoteRuntime(IntPtr process, HostLibrarySearchOptions options)
     {
-        ArgumentNullException.ThrowIfNull(process);
+        if (process == IntPtr.Zero)
+            throw new ArgumentNullException(nameof(process));
+
         ArgumentNullException.ThrowIfNull(options);
 
         if (GetProcessId((HANDLE)process) == Environment.ProcessId)

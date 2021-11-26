@@ -22,6 +22,9 @@ public sealed unsafe class RemoteModuleLoader : IDisposable
     /// <exception cref="PlatformNotSupportedException">Thrown when <paramref name="process"/> is 64-bit and the host is 32-bit.</exception>
     public RemoteModuleLoader(IntPtr process)
     {
+        if (process == IntPtr.Zero)
+            throw new ArgumentNullException(nameof(process));
+
         if (Is64BitProcess((HANDLE)process) && !Environment.Is64BitProcess)
             throw new PlatformNotSupportedException("Loading modules into a 64-bit process is not supported from a 32-bit host.");
 
@@ -34,6 +37,7 @@ public sealed unsafe class RemoteModuleLoader : IDisposable
     public IntPtr Load(string path)
     {
         ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(path);
 
         // Allocate memory for the file path and LoadLibraryParams.
         // The path's null terminator is included in the size of LoadLibraryParams.
@@ -56,6 +60,7 @@ public sealed unsafe class RemoteModuleLoader : IDisposable
     public IntPtr GetModule(string name)
     {
         ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
         return GetRemoteModuleHandle(process, name);
     }
 
@@ -63,6 +68,11 @@ public sealed unsafe class RemoteModuleLoader : IDisposable
     public IntPtr GetExport(IntPtr module, string name)
     {
         ThrowIfDisposed();
+
+        if (module == IntPtr.Zero)
+            throw new ArgumentNullException(nameof(module));
+
+        ArgumentNullException.ThrowIfNull(name);
         return GetRemoteProcAddress(process, (HMODULE)module, name);
     }
 

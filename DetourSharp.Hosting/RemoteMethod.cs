@@ -32,6 +32,10 @@ public sealed unsafe class RemoteMethod : IDisposable
 
     static RemoteMethod Create(HANDLE process, Action<Assembler> generator)
     {
+        if (process == HANDLE.NULL)
+            throw new ArgumentNullException(nameof(process));
+
+        ArgumentNullException.ThrowIfNull(generator);
         var asm      = new Assembler(GetProcessBitness(process));
         using var ms = new MemoryStream();
 
