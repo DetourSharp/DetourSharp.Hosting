@@ -52,6 +52,12 @@ static unsafe class Windows
         return Is64BitProcess(process) ? 64 : 32;
     }
 
+    /// <summary>Gets the architecture of the given process.</summary>
+    public static Architecture GetProcessArchitecture(HANDLE process)
+    {
+        return Is64BitProcess(process) ? Architecture.X64 : Architecture.X86;
+    }
+
     /// <summary>Searches for a module with the given name in a remote process and returns a handle.</summary>
     public static HMODULE GetRemoteModuleHandle(HANDLE hProcess, string name)
     {

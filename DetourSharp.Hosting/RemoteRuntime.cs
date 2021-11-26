@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Text.Json;
-using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Runtime.InteropServices;
 using TerraFX.Interop.Windows;
+using static TerraFX.Interop.Windows.Windows;
 using static Iced.Intel.AssemblerRegisters;
 using static DetourSharp.Hosting.Windows;
 using static DetourSharp.Hosting.HostFxr;
@@ -26,22 +26,25 @@ public sealed unsafe class RemoteRuntime : IDisposable
     public IntPtr Process => process;
 
     /// <summary>Initializes a new <see cref="RemoteRuntime"/> instance and loads the .NET runtime into the given process.</summary>
-    public RemoteRuntime(Process process)
-        : this(process, new HostLibrarySearchOptions(process))
+    public RemoteRuntime(IntPtr process)
+        : this(process, new HostLibrarySearchOptions { Architecture = GetProcessArchitecture((HANDLE)process) })
     {
     }
 
     /// <summary>Initializes a new <see cref="RemoteRuntime"/> instance and loads the .NET runtime into the given process.</summary>
-    public RemoteRuntime(Process process, HostLibrarySearchOptions options)
+    public RemoteRuntime(IntPtr process, HostLibrarySearchOptions options)
     {
         ArgumentNullException.ThrowIfNull(process);
         ArgumentNullException.ThrowIfNull(options);
 
-        if (process.Id == Environment.ProcessId)
+        if (GetProcessId((HANDLE)process) == Environment.ProcessId)
             throw new ArgumentException("The target process cannot be the host process.", nameof(process));
 
-        this.process     = (HANDLE)process.Handle;
-        using var loader = new RemoteModuleLoader(this.process);
+        if (GetProcessArchitecture((HANDLE)process) != options.Architecture)
+            throw new ArgumentException("The architecture of the target process does not match the host library search options.", nameof(process));
+
+        this.process     = (HANDLE)process;
+        using var loader = new RemoteModuleLoader(process);
         var hostfxr      = (HMODULE)loader.Load(HostLibrary.GetLibraryPath(options));
         initializer      = CreateInitializer(loader, hostfxr);
     }
