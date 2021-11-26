@@ -18,7 +18,8 @@ process.WaitForInputIdle();
 using var runtime = new RemoteRuntime(process.Handle);
 
 // Initialize the runtime.
-runtime.Initialize(Path.Combine(AppContext.BaseDirectory, $"{typeof(Program).Assembly.GetName().Name}.runtimeconfig.json"));
+var config = $"{typeof(Program).Assembly.GetName().Name}.runtimeconfig.json";
+runtime.Initialize(Path.Combine(AppContext.BaseDirectory, config));
 
 // Invoke a method in the remote runtime.
 runtime.Invoke(((Delegate)ShowMessageBox).Method, ("Hello, world!", "Success"));
