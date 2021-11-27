@@ -40,23 +40,48 @@ unsafe readonly struct VirtualAlloc : IDisposable
         if (alloc.Address == null)
             return alloc;
 
-        fixed (T* pValue = &value)
-            alloc.Write(pValue);
+        try
+        {
+            fixed (T* pValue = &value)
+            {
+                alloc.Write(pValue);
+            }
+        }
+        catch
+        {
+            alloc.Dispose();
+            throw;
+        }
 
         return alloc;
     }
 
     /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process and writes a buffer to it.</summary>
-    public static VirtualAlloc Alloc<T>(HANDLE hProcess, ReadOnlySpan<T> buffer)
+    public static VirtualAlloc Alloc<T>(HANDLE hProcess, ReadOnlySpan<T> buffer, bool terminate = false)
         where T : unmanaged
     {
-        var alloc = new VirtualAlloc(hProcess, null, (uint)sizeof(T) * (uint)buffer.Length, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        nuint size = (uint)sizeof(T) * ((uint)buffer.Length + (terminate ? 1u : 0u));
+        var alloc  = new VirtualAlloc(hProcess, null, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
         if (alloc.Address == null)
             return alloc;
 
-        fixed (T* pBuffer = buffer)
-            alloc.Write(pBuffer, count: (uint)buffer.Length);
+        try
+        {
+            fixed (T* pBuffer = buffer)
+                alloc.Write(pBuffer, count: (uint)buffer.Length);
+
+            if (terminate)
+            {
+                T value = default;
+                alloc.Write(&value, offset: (uint)buffer.Length * (uint)sizeof(T));
+            }
+        }
+        catch
+        {
+            alloc.Dispose();
+            throw;
+        }
 
         return alloc;
     }

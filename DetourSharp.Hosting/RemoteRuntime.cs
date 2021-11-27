@@ -60,20 +60,18 @@ public sealed unsafe class RemoteRuntime : IDisposable
         if (initializer.Address == null)
             throw new InvalidOperationException("The remote runtime has already been initialized.");
 
-        using var configPath      = AllocString(process, runtimeConfigurationPath);
-        using var assemblyPath    = AllocString(process, typeof(RuntimeHost).Assembly.Location);
-        using var typeName        = AllocString(process, typeof(RuntimeHost).AssemblyQualifiedName);
-        using var methodName      = AllocString(process, nameof(RuntimeHost.Initialize));
-        using var remoteInterface = VirtualAlloc.Alloc<RuntimeHostInterface>(process);
-        using var parameters      = VirtualAlloc.Alloc(process, new InitializerParameters
+        using var allocator  = new RemoteAllocator(process);
+        using var remoteHost = VirtualAlloc.Alloc<RuntimeHostInterface>(process);
+        using var parameters = VirtualAlloc.Alloc(process, new InitializerParameters
         {
-            RuntimeConfigPath = (ushort*)configPath,
-            AssemblyPath      = (ushort*)assemblyPath,
-            TypeName          = (ushort*)typeName,
-            MethodName        = (ushort*)methodName,
-            HostInterface     = (RuntimeHostInterface*)remoteInterface
+            RuntimeConfigPath = (ushort*)allocator.Alloc<char>(runtimeConfigurationPath, terminate: true),
+            AssemblyPath      = (ushort*)allocator.Alloc<char>(typeof(RuntimeHost).Assembly.Location, terminate: true),
+            TypeName          = (ushort*)allocator.Alloc<char>(typeof(RuntimeHost).AssemblyQualifiedName, terminate: true),
+            MethodName        = (ushort*)allocator.Alloc<char>(nameof(RuntimeHost.Initialize), terminate: true),
+            HostInterface     = (RuntimeHostInterface*)remoteHost.Address,
         });
 
+        // We only want to dispose the initializer if initialization fails, so this code is not wrapped in a using.
         var result = (HostExitCode)Windows.RemoteInvoke(process, initializer.Address, (void*)parameters);
 
         switch (result)
@@ -81,7 +79,6 @@ public sealed unsafe class RemoteRuntime : IDisposable
         case HostExitCode.Success:
         case HostExitCode.Success_HostAlreadyInitialized:
         case HostExitCode.Success_DifferentRuntimeProperties:
-            // We only want to dispose the initializer if initialization fails.
             initializer.Dispose();
             break;
         default:
@@ -91,7 +88,7 @@ public sealed unsafe class RemoteRuntime : IDisposable
         // RuntimeHost.Initialize will write to the HostInterface pointer.
         fixed (RuntimeHostInterface* pHostInterface = &hostInterface)
         {
-            remoteInterface.Read(pHostInterface);
+            remoteHost.Read(pHostInterface);
         }
     }
 
@@ -178,34 +175,8 @@ public sealed unsafe class RemoteRuntime : IDisposable
     void RemoteInvoke<T>(void* address, T parameter)
     {
         var json         = JsonSerializer.Serialize(parameter, RuntimeHost.JsonSerializerOptions);
-        using var buffer = AllocString(process, json);
+        using var buffer = VirtualAlloc.Alloc<char>(process, json, terminate: true);
         Marshal.ThrowExceptionForHR(Windows.RemoteInvoke(process, address, (void*)buffer));
-    }
-
-    static VirtualAlloc AllocString(HANDLE process, string? str)
-    {
-        if (str == null)
-            return default;
-
-        var buffer = VirtualAlloc.Alloc<ushort>(process, (uint)str.Length + 1);
-
-        if (buffer.Address == null)
-            ThrowForLastError();
-
-        fixed (char* pStr = str)
-        {
-            try
-            {
-                buffer.Write((ushort*)pStr, count: (uint)str.Length + 1);
-            }
-            catch
-            {
-                buffer.Dispose();
-                throw;
-            }
-        }
-
-        return buffer;
     }
 
     void ThrowIfDisposed()
