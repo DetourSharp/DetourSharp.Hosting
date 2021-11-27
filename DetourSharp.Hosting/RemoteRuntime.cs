@@ -68,7 +68,7 @@ public sealed unsafe class RemoteRuntime : IDisposable
             AssemblyPath      = (ushort*)allocator.Alloc<char>(typeof(RuntimeHost).Assembly.Location, terminate: true),
             TypeName          = (ushort*)allocator.Alloc<char>(typeof(RuntimeHost).AssemblyQualifiedName, terminate: true),
             MethodName        = (ushort*)allocator.Alloc<char>(nameof(RuntimeHost.Initialize), terminate: true),
-            HostInterface     = (RuntimeHostInterface*)remoteHost.Address,
+            HostInterface     = (RuntimeHostInterface*)remoteHost,
         });
 
         // We only want to dispose the initializer if initialization fails, so this code is not wrapped in a using.
