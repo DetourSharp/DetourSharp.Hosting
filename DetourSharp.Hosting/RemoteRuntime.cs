@@ -71,7 +71,7 @@ public sealed unsafe class RemoteRuntime : IDisposable
             HostInterface     = (RuntimeHostInterface*)remoteHost,
         });
 
-        // We only want to dispose the initializer if initialization fails, so this code is not wrapped in a using.
+        // We only want to dispose the initializer if initialization succeeds, so this code is not wrapped in a using.
         var result = (HostExitCode)Windows.RemoteInvoke(process, initializer.Address, (void*)parameters);
 
         switch (result)
