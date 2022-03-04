@@ -44,7 +44,7 @@ public sealed unsafe class RemoteRuntime : IDisposable
             throw new ArgumentException("The architecture of the target process does not match the host library search options.", nameof(process));
 
         ProcessId = processId;
-        process   = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        process   = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_CREATE_THREAD, false, (uint)processId);
 
         if (process == HANDLE.NULL)
             ThrowForLastError();
@@ -60,12 +60,12 @@ public sealed unsafe class RemoteRuntime : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(runtimeConfigurationPath);
 
-        if (initializer.Address == null)
+        if (initializer.Disposed)
             throw new InvalidOperationException("The remote runtime has already been initialized.");
 
-        using var allocator  = new RemoteAllocator(process);
-        using var remoteHost = VirtualAlloc.Alloc<RuntimeHostInterface>(process);
-        using var parameters = VirtualAlloc.Alloc(process, new InitializerParameters
+        using var allocator  = new RemoteAllocator(ProcessId);
+        using var remoteHost = VirtualAlloc.Alloc<RuntimeHostInterface>(ProcessId);
+        using var parameters = VirtualAlloc.Alloc(ProcessId, new InitializerParameters
         {
             RuntimeConfigPath = (ushort*)allocator.Alloc<char>(runtimeConfigurationPath, terminate: true),
             AssemblyPath      = (ushort*)allocator.Alloc<char>(typeof(RuntimeHost).Assembly.Location, terminate: true),
@@ -157,7 +157,7 @@ public sealed unsafe class RemoteRuntime : IDisposable
         ThrowIfNotInitialized();
         ArgumentNullException.ThrowIfNull(rawAssembly);
 
-        using var buffer = VirtualAlloc.Alloc<byte>(process, rawAssembly);
+        using var buffer = VirtualAlloc.Alloc<byte>(ProcessId, rawAssembly);
         RemoteInvoke(hostInterface.LoadAssemblyFromBytes, new LoadAssemblyFromBytesParameters
         {
             Buffer = (ulong)buffer.Address,
@@ -172,13 +172,14 @@ public sealed unsafe class RemoteRuntime : IDisposable
             return;
 
         initializer.Dispose();
+        CloseHandle(process);
         disposed = true;
     }
 
     void RemoteInvoke<T>(void* address, T parameter)
     {
         var json         = JsonSerializer.Serialize(parameter, RuntimeHost.JsonSerializerOptions);
-        using var buffer = VirtualAlloc.Alloc<char>(process, json, terminate: true);
+        using var buffer = VirtualAlloc.Alloc<char>(ProcessId, json, terminate: true);
         Marshal.ThrowExceptionForHR(Windows.RemoteInvoke(process, address, (void*)buffer));
     }
 
@@ -192,7 +193,7 @@ public sealed unsafe class RemoteRuntime : IDisposable
 
     void ThrowIfNotInitialized()
     {
-        if (initializer.Address != null)
+        if (!initializer.Disposed)
         {
             throw new InvalidOperationException("The remote runtime is not initialized.");
         }

@@ -25,6 +25,7 @@ public sealed unsafe class RemoteModuleLoader : IDisposable
         if (Is64BitProcess(processId) && !Environment.Is64BitProcess)
             throw new PlatformNotSupportedException("Loading modules into a 64-bit process is not supported from a 32-bit host.");
 
+        this.processId = processId;
         EnsureInitialized(processId);
         loader = CreateLoader(processId);
     }

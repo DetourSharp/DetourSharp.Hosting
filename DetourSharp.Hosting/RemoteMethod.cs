@@ -5,6 +5,7 @@ using TerraFX.Interop.Windows;
 using Iced.Intel;
 using static TerraFX.Interop.Windows.MEM;
 using static TerraFX.Interop.Windows.PAGE;
+using static TerraFX.Interop.Windows.PROCESS;
 using static TerraFX.Interop.Windows.Windows;
 using static DetourSharp.Hosting.Windows;
 
@@ -19,6 +20,8 @@ public sealed unsafe class RemoteMethod : IDisposable
     readonly HANDLE process;
 
     readonly void* address;
+
+    internal bool Disposed => disposed;
 
     /// <summary>The ID of the process that contains the method.</summary>
     public int ProcessId { get; }
@@ -44,7 +47,10 @@ public sealed unsafe class RemoteMethod : IDisposable
     public static RemoteMethod Create(int processId, Action<Assembler> generator)
     {
         ArgumentNullException.ThrowIfNull(generator);
-        var process = OpenProcess(PROCESS.PROCESS_ALL_ACCESS, true, (uint)processId);
+        var process = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, true, (uint)processId);
+
+        if (process == HANDLE.NULL)
+            ThrowForLastError();
 
         try
         {

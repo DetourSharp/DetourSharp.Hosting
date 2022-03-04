@@ -16,7 +16,11 @@ static unsafe class Windows
     /// <summary>Creates a remote thread, waits for it to finish executing and returns its exit code.</summary>
     public static int RemoteInvoke(int processId, void* address, void* parameter)
     {
-        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        using Win32Handle process = OpenProcess(PROCESS_CREATE_THREAD, false, (uint)processId);
+        
+        if (process.Handle == IntPtr.Zero)
+            ThrowForLastError();
+
         return RemoteInvoke(process, address, parameter);
     }
 
@@ -46,7 +50,11 @@ static unsafe class Windows
     /// <summary>Gets a value indicating whether the given process is 64-bit.</summary>
     public static bool Is64BitProcess(int processId)
     {
-        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        using Win32Handle process = OpenProcess(PROCESS_QUERY_INFORMATION, false, (uint)processId);
+
+        if (process.Handle == IntPtr.Zero)
+            ThrowForLastError();
+
         return Is64BitProcess(process.Handle);
     }
 
@@ -88,7 +96,11 @@ static unsafe class Windows
     /// <summary>Searches for a module with the given name in a remote process and returns a handle.</summary>
     public static HMODULE GetRemoteModuleHandle(int processId, string name)
     {
-        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        using Win32Handle process = OpenProcess(PROCESS_VM_READ, false, (uint)processId);
+
+        if (process.Handle == IntPtr.Zero)
+            ThrowForLastError();
+
         return GetRemoteModuleHandle(process, name);
     }
 
@@ -130,7 +142,11 @@ static unsafe class Windows
     /// <summary>Searches for a named export in a remote process module and returns its address.</summary>
     public static IntPtr GetRemoteProcAddress(int processId, HMODULE hModule, string name)
     {
-        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        using Win32Handle process = OpenProcess(PROCESS_VM_READ, false, (uint)processId);
+
+        if (process.Handle == IntPtr.Zero)
+            ThrowForLastError();
+
         return GetRemoteProcAddress(process.Handle, hModule, name);
     }
 

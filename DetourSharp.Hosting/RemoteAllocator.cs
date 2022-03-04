@@ -9,21 +9,21 @@ sealed unsafe class RemoteAllocator : IDisposable
 {
     bool disposed;
 
-    readonly HANDLE process;
+    readonly int processId;
 
     readonly List<VirtualAlloc> allocations;
 
-    public RemoteAllocator(HANDLE process)
+    public RemoteAllocator(int processId)
     {
-        this.process = process;
-        allocations  = new List<VirtualAlloc>();
+        this.processId = processId;
+        allocations    = new List<VirtualAlloc>();
     }
 
     public T* Alloc<T>()
         where T : unmanaged
     {
         ThrowIfDisposed();
-        var allocation = VirtualAlloc.Alloc<T>(process);
+        var allocation = VirtualAlloc.Alloc<T>(processId);
         allocations.Add(allocation);
         return (T*)allocation.Address;
     }
@@ -32,7 +32,7 @@ sealed unsafe class RemoteAllocator : IDisposable
         where T : unmanaged
     {
         ThrowIfDisposed();
-        var allocation = VirtualAlloc.Alloc(process, buffer, terminate);
+        var allocation = VirtualAlloc.Alloc(processId, buffer, terminate);
         allocations.Add(allocation);
         return (T*)allocation.Address;
     }

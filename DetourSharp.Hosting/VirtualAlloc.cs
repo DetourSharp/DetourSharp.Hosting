@@ -20,12 +20,17 @@ unsafe readonly struct VirtualAlloc : IDisposable
 
     /// <summary>Reserves, commits, or changes the state of a region of memory within the virtual address space of a specified process.</summary>
     public VirtualAlloc(int processId, void* lpAddress, nuint dwSize, uint flAllocationType, uint flProtect)
-        : this(OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId), lpAddress, dwSize, flAllocationType, flProtect)
     {
+        Process = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, false, (uint)processId);
+
+        if (Process == IntPtr.Zero)
+            ThrowForLastError();
+
+        Address = VirtualAllocEx(Process, lpAddress, dwSize, flAllocationType, flProtect);
     }
 
     /// <summary>Reserves, commits, or changes the state of a region of memory within the virtual address space of a specified process.</summary>
-    public VirtualAlloc(HANDLE hProcess, void* lpAddress, nuint dwSize, uint flAllocationType, uint flProtect)
+    VirtualAlloc(HANDLE hProcess, void* lpAddress, nuint dwSize, uint flAllocationType, uint flProtect)
     {
         Process = hProcess;
         Address = VirtualAllocEx(hProcess, lpAddress, dwSize, flAllocationType, flProtect);
@@ -35,12 +40,16 @@ unsafe readonly struct VirtualAlloc : IDisposable
     public static VirtualAlloc Alloc<T>(int processId, nuint count = 1)
         where T : unmanaged
     {
-        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
-        return Alloc<T>(process.Handle, count);
+        var process = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, false, (uint)processId);
+
+        if (process == HANDLE.NULL)
+            ThrowForLastError();
+
+        return Alloc<T>(process, count);
     }
 
     /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process.</summary>
-    public static VirtualAlloc Alloc<T>(HANDLE hProcess, nuint count = 1)
+    static VirtualAlloc Alloc<T>(HANDLE hProcess, nuint count = 1)
         where T : unmanaged
     {
         return new VirtualAlloc(hProcess, null, (uint)sizeof(T) * count, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -50,12 +59,16 @@ unsafe readonly struct VirtualAlloc : IDisposable
     public static VirtualAlloc Alloc<T>(int processId, in T value)
         where T : unmanaged
     {
-        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
-        return Alloc(process.Handle, in value);
+        var process = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, false, (uint)processId);
+
+        if (process == HANDLE.NULL)
+            ThrowForLastError();
+
+        return Alloc(process, in value);
     }
 
     /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process and writes a value to it.</summary>
-    public static VirtualAlloc Alloc<T>(HANDLE hProcess, in T value)
+    static VirtualAlloc Alloc<T>(HANDLE hProcess, in T value)
         where T : unmanaged
     {
         var alloc = new VirtualAlloc(hProcess, null, (uint)sizeof(T), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -83,12 +96,16 @@ unsafe readonly struct VirtualAlloc : IDisposable
     public static VirtualAlloc Alloc<T>(int processId, ReadOnlySpan<T> buffer, bool terminate = false)
         where T : unmanaged
     {
-        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
-        return Alloc(process.Handle, buffer, terminate);
+        var process = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE, false, (uint)processId);
+
+        if (process == HANDLE.NULL)
+            ThrowForLastError();
+
+        return Alloc(process, buffer, terminate);
     }
 
     /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process and writes a buffer to it.</summary>
-    public static VirtualAlloc Alloc<T>(HANDLE hProcess, ReadOnlySpan<T> buffer, bool terminate = false)
+    static VirtualAlloc Alloc<T>(HANDLE hProcess, ReadOnlySpan<T> buffer, bool terminate = false)
         where T : unmanaged
     {
         nuint size = (uint)sizeof(T) * ((uint)buffer.Length + (terminate ? 1u : 0u));
@@ -147,5 +164,6 @@ unsafe readonly struct VirtualAlloc : IDisposable
     public void Dispose()
     {
         VirtualFreeEx(Process, Address, 0, MEM_RELEASE);
+        CloseHandle(Process);
     }
 }
