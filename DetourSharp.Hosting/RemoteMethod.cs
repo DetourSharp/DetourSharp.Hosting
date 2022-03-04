@@ -26,7 +26,7 @@ public sealed unsafe class RemoteMethod : IDisposable
     /// <summary>The ID of the process that contains the method.</summary>
     public int ProcessId { get; }
 
-    /// <summary>The address of the method's code in the address space of <see cref="Process"/>.</summary>
+    /// <summary>The address of the method's code in the address space of the target process.</summary>
     public void* Address
     {
         get

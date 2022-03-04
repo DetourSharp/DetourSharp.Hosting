@@ -134,7 +134,7 @@ unsafe readonly struct VirtualAlloc : IDisposable
         return alloc;
     }
 
-    /// <summary>Defines an implicit conversion from <see cref="VirtualAlloc"/> to <see cref="void*"/>.</summary>
+    /// <summary>Defines an implicit conversion from <see cref="VirtualAlloc"/> to <see cref="void"/>*.</summary>
     public static implicit operator void*(VirtualAlloc alloc)
     {
         return alloc.Address;

@@ -24,7 +24,7 @@ unsafe readonly struct ThreadStartPtr64<T>
     /// <summary>Defines an implicit conversion from <see langword="delegate"/>* <see langword="unmanaged"/>&lt;<typeparamref name="T"/>*, <see cref="uint"/>&gt; to <see cref="ThreadStartPtr64{T}"/>.</summary>
     public static implicit operator ThreadStartPtr64<T>(delegate* unmanaged<T*, uint> ptr) => new(ptr);
 
-    /// <summary>Defines an implicit conversion from <see cref="ThreadStartPtr64{T}"/> to <see cref="ThreadStartPtr64/>.</summary>
+    /// <summary>Defines an implicit conversion from <see cref="ThreadStartPtr64{T}"/> to <see cref="ThreadStartPtr64"/>.</summary>
     public static implicit operator ThreadStartPtr64(ThreadStartPtr64<T> ptr) => new((delegate* unmanaged<void*, uint>)ptr.value);
 
     /// <summary>Defines an explicit conversion from <see cref="ThreadStartPtr64"/> to <see cref="ThreadStartPtr64{T}"/>.</summary>
