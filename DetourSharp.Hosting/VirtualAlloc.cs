@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using TerraFX.Interop.Windows;
 using static TerraFX.Interop.Windows.MEM;
 using static TerraFX.Interop.Windows.PAGE;
+using static TerraFX.Interop.Windows.PROCESS;
 using static TerraFX.Interop.Windows.Windows;
 using static DetourSharp.Hosting.Windows;
 namespace DetourSharp.Hosting;
@@ -18,6 +19,12 @@ unsafe readonly struct VirtualAlloc : IDisposable
     public readonly void* Address;
 
     /// <summary>Reserves, commits, or changes the state of a region of memory within the virtual address space of a specified process.</summary>
+    public VirtualAlloc(int processId, void* lpAddress, nuint dwSize, uint flAllocationType, uint flProtect)
+        : this(OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId), lpAddress, dwSize, flAllocationType, flProtect)
+    {
+    }
+
+    /// <summary>Reserves, commits, or changes the state of a region of memory within the virtual address space of a specified process.</summary>
     public VirtualAlloc(HANDLE hProcess, void* lpAddress, nuint dwSize, uint flAllocationType, uint flProtect)
     {
         Process = hProcess;
@@ -25,10 +32,26 @@ unsafe readonly struct VirtualAlloc : IDisposable
     }
 
     /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process.</summary>
+    public static VirtualAlloc Alloc<T>(int processId, nuint count = 1)
+        where T : unmanaged
+    {
+        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        return Alloc<T>(process.Handle, count);
+    }
+
+    /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process.</summary>
     public static VirtualAlloc Alloc<T>(HANDLE hProcess, nuint count = 1)
         where T : unmanaged
     {
         return new VirtualAlloc(hProcess, null, (uint)sizeof(T) * count, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    }
+
+    /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process and writes a value to it.</summary>
+    public static VirtualAlloc Alloc<T>(int processId, in T value)
+        where T : unmanaged
+    {
+        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        return Alloc(process.Handle, in value);
     }
 
     /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process and writes a value to it.</summary>
@@ -54,6 +77,14 @@ unsafe readonly struct VirtualAlloc : IDisposable
         }
 
         return alloc;
+    }
+
+    /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process and writes a buffer to it.</summary>
+    public static VirtualAlloc Alloc<T>(int processId, ReadOnlySpan<T> buffer, bool terminate = false)
+        where T : unmanaged
+    {
+        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        return Alloc(process.Handle, buffer, terminate);
     }
 
     /// <summary>Reserves and commits a region of memory within the virtual address space of a specified process and writes a buffer to it.</summary>

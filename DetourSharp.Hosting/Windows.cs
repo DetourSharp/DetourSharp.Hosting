@@ -5,6 +5,7 @@ using TerraFX.Interop.Windows;
 using static TerraFX.Interop.Windows.WAIT;
 using static TerraFX.Interop.Windows.IMAGE;
 using static TerraFX.Interop.Windows.ERROR;
+using static TerraFX.Interop.Windows.PROCESS;
 using static TerraFX.Interop.Windows.Windows;
 namespace DetourSharp.Hosting;
 
@@ -12,6 +13,13 @@ namespace DetourSharp.Hosting;
 [SupportedOSPlatform("windows")]
 static unsafe class Windows
 {
+    /// <summary>Creates a remote thread, waits for it to finish executing and returns its exit code.</summary>
+    public static int RemoteInvoke(int processId, void* address, void* parameter)
+    {
+        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        return RemoteInvoke(process, address, parameter);
+    }
+
     /// <summary>Creates a remote thread, waits for it to finish executing and returns its exit code.</summary>
     public static int RemoteInvoke(HANDLE process, void* address, void* parameter)
     {
@@ -36,6 +44,13 @@ static unsafe class Windows
     }
 
     /// <summary>Gets a value indicating whether the given process is 64-bit.</summary>
+    public static bool Is64BitProcess(int processId)
+    {
+        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        return Is64BitProcess(process.Handle);
+    }
+
+    /// <summary>Gets a value indicating whether the given process is 64-bit.</summary>
     public static bool Is64BitProcess(HANDLE process)
     {
         BOOL wow64Process;
@@ -47,15 +62,34 @@ static unsafe class Windows
     }
 
     /// <summary>Gets the bitness of the given process.</summary>
+    public static int GetProcessBitness(int processId)
+    {
+        return Is64BitProcess(processId) ? 64 : 32;
+    }
+
+    /// <summary>Gets the bitness of the given process.</summary>
     public static int GetProcessBitness(HANDLE process)
     {
         return Is64BitProcess(process) ? 64 : 32;
     }
 
     /// <summary>Gets the architecture of the given process.</summary>
+    public static Architecture GetProcessArchitecture(int processId)
+    {
+        return Is64BitProcess(processId) ? Architecture.X64 : Architecture.X86;
+    }
+
+    /// <summary>Gets the architecture of the given process.</summary>
     public static Architecture GetProcessArchitecture(HANDLE process)
     {
         return Is64BitProcess(process) ? Architecture.X64 : Architecture.X86;
+    }
+
+    /// <summary>Searches for a module with the given name in a remote process and returns a handle.</summary>
+    public static HMODULE GetRemoteModuleHandle(int processId, string name)
+    {
+        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        return GetRemoteModuleHandle(process, name);
     }
 
     /// <summary>Searches for a module with the given name in a remote process and returns a handle.</summary>
@@ -68,7 +102,7 @@ static unsafe class Windows
     }
 
     /// <summary>Searches for a module with the given name in a remote process and returns a handle.</summary>
-    public static HMODULE GetRemoteModuleHandleW(HANDLE hProcess, ushort* pName)
+    static HMODULE GetRemoteModuleHandleW(HANDLE hProcess, ushort* pName)
     {
         var module   = new MODULEENTRY32W { dwSize = (uint)sizeof(MODULEENTRY32W) };
         var snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, GetProcessId(hProcess));
@@ -94,6 +128,13 @@ static unsafe class Windows
     }
 
     /// <summary>Searches for a named export in a remote process module and returns its address.</summary>
+    public static IntPtr GetRemoteProcAddress(int processId, HMODULE hModule, string name)
+    {
+        using Win32Handle process = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+        return GetRemoteProcAddress(process.Handle, hModule, name);
+    }
+
+    /// <summary>Searches for a named export in a remote process module and returns its address.</summary>
     public static IntPtr GetRemoteProcAddress(HANDLE hProcess, HMODULE hModule, string name)
     {
         var buffer = Marshal.StringToHGlobalAnsi(name);
@@ -109,7 +150,7 @@ static unsafe class Windows
     }
 
     /// <summary>Searches for an ordinal or named export in a remote process module and returns its address.</summary>
-    public static IntPtr GetRemoteProcAddress(HANDLE hProcess, HMODULE hModule, sbyte* pName)
+    static IntPtr GetRemoteProcAddress(HANDLE hProcess, HMODULE hModule, sbyte* pName)
     {
         IMAGE_DATA_DIRECTORY entry;
         IMAGE_EXPORT_DIRECTORY export;

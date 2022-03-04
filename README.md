@@ -15,7 +15,7 @@ process.WaitForInputIdle();
 
 // The RemoteRuntime class will load the .NET runtime into the
 // process but it will not perform initialization immediately.
-using var runtime = new RemoteRuntime(process.Handle);
+using var runtime = new RemoteRuntime(process.Id);
 
 // Initialize the runtime.
 var config = $"{typeof(Program).Assembly.GetName().Name}.runtimeconfig.json";

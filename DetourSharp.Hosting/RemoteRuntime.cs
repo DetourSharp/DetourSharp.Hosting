@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Runtime.InteropServices;
 using TerraFX.Interop.Windows;
+using static TerraFX.Interop.Windows.PROCESS;
 using static TerraFX.Interop.Windows.Windows;
 using static Iced.Intel.AssemblerRegisters;
 using static DetourSharp.Hosting.Windows;
@@ -22,31 +23,33 @@ public sealed unsafe class RemoteRuntime : IDisposable
 
     bool disposed;
 
-    /// <summary>Gets the handle for the process that the runtime is loaded into.</summary>
-    public IntPtr Process => process;
+    /// <summary>Gets the ID for the process that the runtime is loaded into.</summary>
+    public int ProcessId { get; }
 
     /// <summary>Initializes a new <see cref="RemoteRuntime"/> instance and loads the .NET runtime into the given process.</summary>
-    public RemoteRuntime(IntPtr process)
-        : this(process, new HostLibrarySearchOptions { Architecture = GetProcessArchitecture((HANDLE)process) })
+    public RemoteRuntime(int processId)
+        : this(processId, new HostLibrarySearchOptions { Architecture = GetProcessArchitecture(processId) })
     {
     }
 
     /// <summary>Initializes a new <see cref="RemoteRuntime"/> instance and loads the .NET runtime into the given process.</summary>
-    public RemoteRuntime(IntPtr process, HostLibrarySearchOptions options)
+    public RemoteRuntime(int processId, HostLibrarySearchOptions options)
     {
-        if (process == IntPtr.Zero)
-            throw new ArgumentNullException(nameof(process));
-
         ArgumentNullException.ThrowIfNull(options);
 
-        if (GetProcessId((HANDLE)process) == Environment.ProcessId)
+        if (processId == Environment.ProcessId)
             throw new ArgumentException("The target process cannot be the host process.", nameof(process));
 
-        if (GetProcessArchitecture((HANDLE)process) != options.Architecture)
+        if (GetProcessArchitecture(processId) != options.Architecture)
             throw new ArgumentException("The architecture of the target process does not match the host library search options.", nameof(process));
 
-        this.process     = (HANDLE)process;
-        using var loader = new RemoteModuleLoader(process);
+        ProcessId = processId;
+        process   = OpenProcess(PROCESS_ALL_ACCESS, false, (uint)processId);
+
+        if (process == HANDLE.NULL)
+            ThrowForLastError();
+
+        using var loader = new RemoteModuleLoader(processId);
         var hostfxr      = (HMODULE)loader.Load(HostLibrary.GetLibraryPath(options));
         initializer      = CreateInitializer(loader, hostfxr);
     }
@@ -219,7 +222,7 @@ public sealed unsafe class RemoteRuntime : IDisposable
         var get_runtime_delegate          = loader.GetExport(hostfxr, "hostfxr_get_runtime_delegate");
         var close                         = loader.GetExport(hostfxr, "hostfxr_close");
 
-        return RemoteMethod.Create(loader.Process, asm =>
+        return RemoteMethod.Create(loader.ProcessId, asm =>
         {
             switch (asm.Bitness)
             {
