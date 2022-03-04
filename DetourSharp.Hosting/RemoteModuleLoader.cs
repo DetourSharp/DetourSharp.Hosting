@@ -28,6 +28,7 @@ public sealed unsafe class RemoteModuleLoader : IDisposable
         if (Is64BitProcess((HANDLE)process) && !Environment.Is64BitProcess)
             throw new PlatformNotSupportedException("Loading modules into a 64-bit process is not supported from a 32-bit host.");
 
+        EnsureInitialized((HANDLE)process);
         this.process = (HANDLE)process;
         loader       = CreateLoader((HANDLE)process);
     }
@@ -136,6 +137,24 @@ public sealed unsafe class RemoteModuleLoader : IDisposable
                 break;
             }
         });
+    }
+
+    // If a process was created suspended, we need to ensure it has been initialized.
+    // This can be achieved by creating a remote thread with an empty function, which
+    // will result in LdrInitializeThunk being called to initialize the process.
+    static void EnsureInitialized(HANDLE process)
+    {
+        using var initializer = RemoteMethod.Create(process, asm =>
+        {
+            asm.xor(eax, eax);
+
+            if (asm.Bitness == 64)
+                asm.ret();
+            else
+                asm.ret(4);
+        });
+
+        RemoteInvoke(process, initializer.Address, null);
     }
 
 #pragma warning disable 0649
